@@ -6,7 +6,8 @@ A `Local` answers the agents' tools by name — read, laboratory and paper, neve
 the one every language reaches.
 
 The library is the file `BENTRIX_FFI` names, or `libbentrix` in the folder `BENTRIX_FFI_DIR`
-names, or on the system's library path.
+names, or — on Windows — in Bentrix's own folder (`%LOCALAPPDATA%\Programs\BENTRIX`, where the installer puts it),
+or on the system's library path.
 
 ```julia
 using Bentrix
@@ -31,6 +32,9 @@ function __init__()
     if isempty(file)
         name = "libbentrix"
         dir = get(ENV, "BENTRIX_FFI_DIR", "")
+        if isempty(dir) && Sys.iswindows() && isfile(joinpath(get(ENV, "LOCALAPPDATA", ""), "Programs", "BENTRIX", "libbentrix.dll"))
+            dir = joinpath(ENV["LOCALAPPDATA"], "Programs", "BENTRIX")
+        end
         file = isempty(dir) ? name : something(Libdl.find_library(name, [dir]), joinpath(dir, name))
     end
     LIB[] = Libdl.dlopen(file)
