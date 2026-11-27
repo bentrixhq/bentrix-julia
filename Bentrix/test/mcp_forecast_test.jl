@@ -1,11 +1,11 @@
 # A forecast's builder and an evaluation's sheet.
 #
-#   julia sdk/julia/BentrixMCP/test/forecast_test.jl
+#   julia sdk/julia/Bentrix/test/mcp_forecast_test.jl
 #
 # Mutations (2026-11-08), each red: forecast_spec writing the timeframe whatever it is (the element form named an
 # interval); declined read as a failure (a decline was EvalFailed).
-include(joinpath(@__DIR__, "..", "src", "BentrixMCP.jl"))
-using .BentrixMCP
+include(joinpath(@__DIR__, "..", "src", "mcp", "MCP.jl"))
+using .MCP
 
 failed = 0
 check(c, what) = c || (println("FAIL: ", what); global failed += 1)
@@ -16,7 +16,7 @@ mutable struct Sheet
 end
 Sheet(pages...) = Sheet(collect(Vector{Any}, pages), String[])
 
-function BentrixMCP.call(s::Sheet, name, args)
+function MCP.call(s::Sheet, name, args)
     (name == "wait_for" && args["uri"] == EVAL_EVENT) || error("not the eval event")
     push!(s.asked, args["after"])
     items = isempty(s.pages) ? Any[] : popfirst!(s.pages)
@@ -25,7 +25,7 @@ end
 
 moved(ask, state, kv...) = Dict{String,Any}("ask" => ask, "state" => state, kv...)
 
-f = BentrixMCP.of_elements("bricks", "EURUSD", "renko", 1_700_000_000_000; elements = Dict("renko_box" => 0.0005))
+f = MCP.of_elements("bricks", "EURUSD", "renko", 1_700_000_000_000; elements = Dict("renko_box" => 0.0005))
 forecast_step!(f, 1.1005; expected_ms = 1_700_000_600_000)
 d = forecast_spec(f)
 check(!haskey(d["form"], "timeframe") && d["form"]["chart_type"] == "renko" && d["form"]["elements"]["renko_box"] == 0.0005, "the element form named an interval")

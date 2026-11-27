@@ -1,13 +1,15 @@
 """
-**BENTRIX for Julia**: the engine in your own process through its C ABI
+**Bentrix for Julia**: the engine in your own process through its C ABI
 (`crates/bentrix-ffi/include/bentrix.h`), by `ccall` with no dependency beyond the standard library.
 A `Local` answers the agents' tools by name — read, laboratory and paper, never a real account — and
-`TradingEnv` is the Gym, a client of BENTRIX's own environment (`env_make`, `env_reset`, `env_step`),
+`TradingEnv` is the Gym, a client of Bentrix's own environment (`env_make`, `env_reset`, `env_step`),
 the one every language reaches.
 
 The library is the file `BENTRIX_FFI` names, or `libbentrix` in the folder `BENTRIX_FFI_DIR`
-names, or — on Windows — in Bentrix's own folder (`%LOCALAPPDATA%\Programs\BENTRIX`, where the installer puts it),
+names, or — on Windows — in Bentrix's own folder (`%LOCALAPPDATA%\\Programs\\BENTRIX`, where the installer puts it),
 or on the system's library path.
+
+The client of a running Bentrix is this package's `Bentrix.MCP` (`using Bentrix.MCP`); it needs no library.
 
 ```julia
 using Bentrix
@@ -27,7 +29,9 @@ export Local, TradingEnv, BentrixError, call, read_resource, arm, advance, settl
 
 const LIB = Ref{Ptr{Cvoid}}(C_NULL)
 
-function __init__()
+# The library is opened on the engine's first call, not when the package loads: `Bentrix.MCP` needs none.
+function lib()
+    LIB[] == C_NULL || return LIB[]
     file = get(ENV, "BENTRIX_FFI", "")
     if isempty(file)
         name = "libbentrix"
@@ -40,7 +44,7 @@ function __init__()
     LIB[] = Libdl.dlopen(file)
 end
 
-fn(name::Symbol) = Libdl.dlsym(LIB[], name)
+fn(name::Symbol) = Libdl.dlsym(lib(), name)
 
 "A refusal or a failure, in Bentrix's own words."
 struct BentrixError <: Exception
@@ -196,8 +200,9 @@ end  # module JSON
 mutable struct Local
     handle::Ptr{Cvoid}
     function Local(workspace::Union{AbstractString,Nothing} = nothing, store::Union{AbstractString,Nothing} = nothing)
-        h = ccall(fn(:bx_open), Ptr{Cvoid}, (Cstring, Cstring),
-            workspace === nothing ? C_NULL : workspace, store === nothing ? C_NULL : store)
+        refuse_another_interface()
+        h = ccall(fn(:bx_open), Ptr{Cvoid}, (Cstring, Cstring, Cstring),
+            workspace === nothing ? C_NULL : workspace, store === nothing ? C_NULL : store, "Julia")
         h == C_NULL && throw(failure())
         l = new(h)
         finalizer(close, l)
@@ -250,6 +255,25 @@ end
 
 "The build this library was made from."
 version() = unsafe_string(ccall(fn(:bx_version), Cstring, ()))
+
+"**The engine's interface this package speaks** (`bx_abi`): a library of
+another one is refused before `bx_open`, in a sentence naming both."
+const ABI = 2
+
+"The interface the library speaks: its `bx_abi()`, or 1 for a library from before it (0.1.382)."
+function abi_of_the_library()
+    at = Libdl.dlsym(lib(), :bx_abi; throw_error = false)
+    at === nothing && return 1
+    return Int(ccall(at, UInt32, ()))
+end
+
+"Refused, in words, unless the library speaks [`ABI`](@ref)."
+function refuse_another_interface()
+    have = abi_of_the_library()
+    have == ABI && return nothing
+    update = have < ABI ? "update Bentrix" : "update this package"
+    throw(ErrorException("Bentrix's engine library speaks interface $(have) (Bentrix $(version())) and this package speaks $(ABI): $(update)."))
+end
 
 "An interval's length in ms (M1, H4, D1); 0 for one with no fixed length."
 interval_ms(label::AbstractString) = ccall(fn(:bx_interval_ms), Int64, (Cstring,), label)
@@ -317,5 +341,10 @@ function Base.close(env::TradingEnv)
     end
     return nothing
 end
+
+include("mcp/MCP.jl")
+
+# The engine in this process is a workbench object's door too: `MCP.open_bench(Bentrix.Local(ws, store))`.
+MCP._door_call(l::Local, name, args) = call(l, name, args)
 
 end  # module Bentrix

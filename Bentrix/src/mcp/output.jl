@@ -18,7 +18,7 @@ const MEANING_WORDS = ["buy", "sell", "nothing", "up", "down", "flat", "in", "ou
 const OUTPUT_INTENTS = ["buy", "sell", "close_buys", "close_sells", "nothing"]
 
 "A refusal in Bentrix's words, raised before anything is sent."
-struct OutputRefused <: Exception
+struct OutputRefused <: BentrixException
     msg::String
 end
 Base.showerror(io::IO, e::OutputRefused) = print(io, e.msg)

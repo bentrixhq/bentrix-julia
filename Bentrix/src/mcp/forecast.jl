@@ -78,13 +78,13 @@ forecast_put_many(c, bench::AbstractString, fs; all_or_nothing = false) =
     call(c, "forecast_put_many", Dict{String,Any}("bench" => bench, "forecasts" => [forecast_spec(f) for f in fs], "all_or_nothing" => all_or_nothing))
 
 "The person's No on the evaluation's sheet. Not a failure: nothing was made or fetched."
-struct DeclinedByThePerson <: Exception
+struct DeclinedByThePerson <: BentrixException
     ask::String
 end
 Base.showerror(io::IO, e::DeclinedByThePerson) = print(io, "the person declined ", e.ask)
 
 "A laboratory not made over the span, or a run that did not start on it, with Bentrix's why."
-struct EvalFailed <: Exception
+struct EvalFailed <: BentrixException
     ask::String
     why::String
 end

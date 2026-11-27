@@ -1,4 +1,4 @@
-# The hand-written half of BENTRIX's Julia MCP client: the connection and everything that does not change
+# The hand-written half of Bentrix's Julia MCP client: the connection and everything that does not change
 # when a capability is added (generated.jl is the rest, from the catalogue). It speaks MCP revision
 # 2026-07-28 over Streamable HTTP with Downloads (libcurl): every request is its own POST carrying the
 # protocol version, the client's identity and its (empty) capabilities in _meta - the same wire as the
@@ -25,14 +25,17 @@ function busy_wait_s(data)
     return min(ms / 1000, BUSY_WAIT_MAX_S)
 end
 
+"Every error Bentrix's client raises: a request or a tool refused, an order refused, a forecast declined."
+abstract type BentrixException <: Exception end
+
 "A refusal or a failure, in Bentrix's own words."
-struct McpError <: Exception
+struct McpError <: BentrixException
     msg::String
 end
 Base.showerror(io::IO, e::McpError) = print(io, e.msg)
 
 "A tool ran and answered isError: the product's own sentence, verbatim."
-struct ToolError <: Exception
+struct ToolError <: BentrixException
     tool::String
     msg::String
 end
@@ -84,9 +87,27 @@ function _escape(s::AbstractString)
     String(take!(io))
 end
 
+# A workbench's address stands for its three parts: given as `bench` - or, the first of the three
+# passed by position, as `home` - a `bentrix://<home>/<owner>/bench/<name>` address (or a workbench, by its `uri`)
+# fills `home`, `owner` and `bench`. Parts given as before are left as they are.
+function _from_address!(values::Dict{String,Any})
+    for key in ("bench", "home")
+        v = get(values, key, nothing)
+        v = v !== nothing && hasproperty(v, :uri) ? getproperty(v, :uri) : v
+        if v isa AbstractString && startswith(v, "bentrix://")
+            parts = split(v[length("bentrix://")+1:end], '/')
+            if length(parts) >= 4 && parts[3] == "bench"
+                values["home"], values["owner"], values["bench"] = String(parts[1]), String(parts[2]), String(parts[4])
+            end
+            return values
+        end
+    end
+    values
+end
+
 "The RFC 6570 subset the catalogue uses: `{name}` and `{?a,b}`. A nothing optional is left out."
 function expand_template(template::AbstractString, vars)
-    values = plain(vars)
+    values = _from_address!(plain(vars))
     replace(template, r"\{([?&]?)([^}]+)\}" => function (m)
         g = match(r"\{([?&]?)([^}]+)\}", m)
         op, names = g.captures[1], g.captures[2]

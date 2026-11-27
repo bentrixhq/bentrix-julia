@@ -1,22 +1,23 @@
 """
-**BENTRIX's MCP client for Julia**: every capability of a running BENTRIX over its Model Context
-Protocol endpoint, generated from the capability catalogue (`generated.jl`) over a hand-written
-runtime (`client.jl`), with the standard library only (Downloads, Base64). The engine in your own
-process is the `Bentrix` package beside it.
+**Bentrix's MCP client for Julia** (`Bentrix.MCP`): every capability of a running Bentrix over its Model
+Context Protocol endpoint, generated from the capability catalogue (`generated.jl`) over a hand-written runtime
+(`client.jl`), with the standard library only (Downloads, Base64), and a workbench as one object (`bench.jl`, from
+the Bench table). The engine in your own process is the package's own module, `Bentrix`.
 
 ```julia
-using BentrixMCP
-b = BentrixMCP.connect("my-agent")
-bench = b.workspace.get_state()["laboratories"][1]["benches"][1]["uri"]
-made = b.strategy.env_make(bench; window = 8)
+using Bentrix.MCP
+b = MCP.connect("my-agent")
+bench = open_bench(b)
+buy(bench, 0.1; sl = 2300.0)
+step(bench; interval = "H1")
 ```
 """
-module BentrixMCP
+module MCP
 
 import Base64
 import Downloads
 
-export connect, McpError, ToolError, call, call_job, read_resource, read_pages, wait_for, verify_catalogue
+export connect, BentrixException, McpError, ToolError, call, call_job, read_resource, read_pages, wait_for, verify_catalogue
 
 # ---- a small JSON reader and writer, the engine package's own ---------------------------------------
 # Objects are Dict{String,Any}, arrays Vector{Any}, numbers Float64 (parse reads the double the engine
@@ -152,7 +153,8 @@ end  # module JSON
 
 include("generated.jl")
 include("client.jl")
+include("bench.jl")
 include("forecast.jl")
 include("output.jl")
 
-end  # module BentrixMCP
+end  # module MCP

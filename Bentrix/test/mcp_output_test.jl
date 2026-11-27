@@ -2,11 +2,11 @@
 # declared range is refused in words before anything is sent; three examples are three meanings; a put
 # never sends an arrival.
 #
-#   julia sdk/julia/BentrixMCP/test/output_test.jl
+#   julia sdk/julia/Bentrix/test/mcp_output_test.jl
 #
 # Mutation (2026-11-11), red: in_range not comparing - a 1.3 for a 0..1 output was sent.
-include(joinpath(@__DIR__, "..", "src", "BentrixMCP.jl"))
-using .BentrixMCP
+include(joinpath(@__DIR__, "..", "src", "mcp", "MCP.jl"))
+using .MCP
 
 failed = 0
 check(c, what) = c || (println("FAIL: ", what); global failed += 1)
@@ -16,7 +16,7 @@ mutable struct Rec
     args::Vector{Dict{String,Any}}
 end
 Rec() = Rec(String[], Dict{String,Any}[])
-function BentrixMCP.call(r::Rec, name, args)
+function MCP.call(r::Rec, name, args)
     push!(r.names, name)
     push!(r.args, args)
     Dict{String,Any}("ok" => true)
